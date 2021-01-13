@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+
+<html>
+	
+	<head>
+		<title>SB Image Transfer</title>
+	</head>
+	
+	<body>
+	
+	<canvas id="canvas" style="display: none;"></canvas>
+	<p><input id="file" type="file" accept="image/*" name="image"></p>
+	<p><button id="action" style="display: none;">Encode and Download</button></p>
+	<p><img id="display" /></p>
+	
+	<script>
+		
+		var filename = "";
+		
+		window.onload = function () {
+		
+			document.getElementById("file").addEventListener("change", function() {
+				
+				filename = event.target.files[0].name;
+				
+				document.getElementById('display').src = URL.createObjectURL(event.target.files[0]);
+				document.getElementById('display').style.display = "block";
+				document.getElementById('file').style.display = "none";
+				document.getElementById('action').style.display = "block";
+				
+			});
+			
+			document.getElementById("action").addEventListener("click", function() {
+				var display = document.getElementById('display');
+				
+				var canvas = document.createElement('canvas');
+				var context = canvas.getContext("2d");
+				canvas.width = display.width;
+				canvas.height = display.height;
+				context.drawImage(display, 0, 0);
+				var image = context.getImageData(0, 0, canvas.width, canvas.height);
+				
+				var imageA = [];
+				var imageR = [];
+				var imageG = [];
+				var imageB = [];
+				
+				for (var i = 0; i < image.data.length / 4; i++) {
+					imageR.push(image.data[i * 4 + 0]);
+					imageG.push(image.data[i * 4 + 1]);
+					imageB.push(image.data[i * 4 + 2]);
+					imageA.push(image.data[i * 4 + 3]);
+				}
+				
+				var grayscale = true;
+				for (var i = 0; i < imageR.length; i++) {
+					if (imageR[i] !== imageG[i] || imageG[i] !== imageB[i]) {
+						grayscale = false;
+						break;
+					}
+				}
+				
+				var opaque = true;
+				for (var i = 0; i < imageR.length; i++) {
+					if (imageA[i] != 255) {
+						opaque = false;
+						break;
+					}
+				}
+				
+				var header = "[" + filename + "," + canvas.width.toString() + "," + canvas.height.toString() + "," + (grayscale ? opaque ? 0 : 1 : opaque ? 2 : 3) + "]";
+				
+				var binary = "";
+				if (grayscale) {
+					if (opaque) {
+						for (var i = 0; i < imageR.length; i++) {
+							binary += (imageR[i]+256).toString(2).substring(1);
+						}
+					} else {
+						for (var i = 0; i < imageR.length; i++) {
+							binary += (imageA[i]+256).toString(2).substring(1);
+							binary += (imageR[i]+256).toString(2).substring(1);
+						}
+					}
+				} else {
+					if (opaque) {
+						for (var i = 0; i < imageR.length; i++) {
+							binary += (imageR[i]+256).toString(2).substring(1);
+							binary += (imageG[i]+256).toString(2).substring(1);
+							binary += (imageB[i]+256).toString(2).substring(1);
+						}
+					} else {
+						for (var i = 0; i < imageR.length; i++) {
+							binary += (imageA[i]+256).toString(2).substring(1);
+							binary += (imageR[i]+256).toString(2).substring(1);
+							binary += (imageG[i]+256).toString(2).substring(1);
+							binary += (imageB[i]+256).toString(2).substring(1);
+						}
+					}
+				}
+				
+				var encode = "";
+				while (binary.length % 15) binary += '0';
+				for (var i = 0; i < binary.length / 15; i++) {
+					encode += String.fromCharCode(parseInt(binary.slice(i * 15, i * 15 + 15), 2));
+				}
+				
+				var now = new Date();
+				var seconds = now.getMonth() * 60 * 60 * 24 * 31 + (now.getDate() - 1) * 60 * 60 * 24 + now.getHours() * 60 * 60 + now.getMinutes() * 60 + now.getSeconds();
+				var unique = (Math.pow(36, 5) + seconds).toString(36).substring(1).toUpperCase();
+				var savename = "TSBIT_" + unique + ".TXT";
+				
+				download(savename, header + encode);
+				
+				document.getElementById('display').style.display = "none";
+				document.getElementById('file').style.display = "block";
+				document.getElementById('action').style.display = "none";
+				clearInputFile(document.getElementById('file'));
+				
+			});
+			
+			function download(filename, text) {
+				var element = document.createElement('a');
+				element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(text));
+				element.setAttribute('download', filename);
+				element.style.display = 'none';
+				document.body.appendChild(element);
+				element.click();
+				document.body.removeChild(element);
+			}
+			
+			function clearInputFile(f) {
+				if (f.value) {
+					try {
+						f.value = '';
+					} catch(err) { }
+					if (f.value) {
+						var form = document.createElement('form'),
+						parentNode = f.parentNode, ref = f.nextSibling;
+						form.appendChild(f);
+						form.reset();
+						parentNode.insertBefore(f, ref);
+					}
+				}
+			}
+			
+		}
+		
+	</script>
+	
+  </body>
+  
+</html>
